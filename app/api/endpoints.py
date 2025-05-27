@@ -69,8 +69,8 @@ def login(user: LoginUser, db: Session = Depends(get_db)) -> UserWithToken:
 def get_user(db: Session = Depends(get_db), token: str = Depends(ouauth2scheme)) -> User:
     try:
         payload = get_current_user(token)
-        email: str = payload.get("sub")
-        if email is None:
+        user_id: int = payload.get("sub")
+        if user_id is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Токен не валиден"
@@ -81,7 +81,7 @@ def get_user(db: Session = Depends(get_db), token: str = Depends(ouauth2scheme))
             detail="токен не валиден"
         )
 
-    user = crud_user.get_user_by_email(db, email=email)
+    user = crud_user.get_user_by_id(db, id=user_id)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -94,8 +94,8 @@ def get_user(db: Session = Depends(get_db), token: str = Depends(ouauth2scheme))
 def encode(toencode: ToEncode, token: str = Depends(ouauth2scheme)) -> Result:
     try:
         payload = get_current_user(token)
-        email: str = payload.get("sub")
-        if email is None:
+        user_id: int = payload.get("sub")
+        if user_id is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Токен не валиден"
