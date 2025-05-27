@@ -1,8 +1,12 @@
 from datetime import datetime, timedelta
-from typing import Optional
-from jose import jwt
+from typing import Optional, Dict, Any
+
+from fastapi import Depends, HTTPException, status
+from jose import jwt, JWTError
 from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordBearer
+
+from main import redis
 
 
 SECRET_KEY = "sosi_ivan_zolo"
@@ -29,4 +33,26 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
         expires = datetime.utcnow() + timedelta(ACCESS_TOKEN_EXPIRES_MINUTES)
     to_encode.update({"exp": expires})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    redis.setex(
+        f"jwt:{encoded_jwt}",
+        timedelta(minutes=15),
+        "valid"
+    )
     return encoded_jwt
+
+
+def get_current_user(token: str = Depends(ouauth2scheme)) -> Dict[str, Any]:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    try:
+        if not redis.exists(f"jwt:{token}"):
+            raise credentials_exception
+
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except JWTError:
+        raise credentials_exception

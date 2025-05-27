@@ -6,7 +6,7 @@ from app.cruds import user as crud_user
 from app.db.database import get_db
 from datetime import timedelta
 from jose import jwt, JWTError
-from app.core.security import verify_password, ouauth2scheme, create_access_token, SECRET_KEY, ALGORITHM
+from app.core.security import verify_password, ouauth2scheme, create_access_token, get_current_user
 from app.services.scipher import scipher
 from app.schemas.scipher import ToEncode, Result
 
@@ -68,21 +68,17 @@ def login(user: LoginUser, db: Session = Depends(get_db)) -> UserWithToken:
 @router.get("/users/me", response_model=User)
 def get_user(db: Session = Depends(get_db), token: str = Depends(ouauth2scheme)) -> User:
     try:
-        payload = jwt.decode(
-            token,
-            SECRET_KEY,
-            algorithms=[ALGORITHM]
-        )
+        payload = get_current_user(token)
         email: str = payload.get("sub")
         if email is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Токен не валидирован"
+                detail="Токен не валиден"
             )
     except JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="токен не валидирован"
+            detail="токен не валиден"
         )
 
     user = crud_user.get_user_by_email(db, email=email)
@@ -95,5 +91,18 @@ def get_user(db: Session = Depends(get_db), token: str = Depends(ouauth2scheme))
 
 
 @router.post("/encode", response_model=Result)
-def encode(toencode: ToEncode) -> Result:
+def encode(toencode: ToEncode, token: str = Depends(ouauth2scheme)) -> Result:
+    try:
+        payload = get_current_user(token)
+        email: str = payload.get("sub")
+        if email is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Токен не валиден"
+            )
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="токен не валиден"
+        )
     return scipher(toencode)
