@@ -6,7 +6,7 @@ from jose import jwt, JWTError
 from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordBearer
 
-from main import redis
+from app.core.redis_cl import redis_client
 
 
 SECRET_KEY = "sosi_ivan_zolo"
@@ -33,10 +33,11 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
         expires = datetime.utcnow() + timedelta(ACCESS_TOKEN_EXPIRES_MINUTES)
     to_encode.update({"exp": expires})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    redis.setex(
+
+    redis_client.setex(
         f"jwt:{encoded_jwt}",
-        timedelta(minutes=15),
-        "valid"
+        "valid",
+        ex=int(960)
     )
     return encoded_jwt
 
@@ -49,7 +50,7 @@ def get_current_user(token: str = Depends(ouauth2scheme)) -> Dict[str, Any]:
     )
 
     try:
-        if not redis.exists(f"jwt:{token}"):
+        if not redis_client.exists(f"jwt:{token}"):
             raise credentials_exception
 
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
